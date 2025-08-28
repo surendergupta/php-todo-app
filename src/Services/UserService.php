@@ -9,7 +9,6 @@ class UserService
 {
     public function __construct(private UserRepository $repo) {}
 
-
     /**
      * List all users from the database
      * 
@@ -26,7 +25,7 @@ class UserService
      * @return array|false The user data if found, otherwise false
      */
 
-    public function findUser(string $user_id): array|false {
+    public function findUser(string $user_id): ?array {
         return $this->repo->find($user_id);
     }
 
@@ -95,24 +94,12 @@ class UserService
         if (!$user) {
             return ['error' => 'User not found', 'code' => 404];
         }
-
-        $email_address = $data['email_address'] ?? $user['email_address'];
-        $user_password = $data['user_password'] ?? $user['user_password'];
-        $first_name = $data['first_name'] ?? $user['first_name'];
-        $last_name = $data['last_name'] ?? $user['last_name'];
-        $is_admin = $data['is_admin'] ?? (bool) $user['is_admin'];
-        $token = $data['token'] ?? $user['token'];
-
-        $updated = $this->repo->update(
-            $user_id, 
-            $email_address, 
-            $user_password, 
-            $first_name, 
-            $last_name, 
-            $is_admin,
-            $token
-        );
-
+        
+        $allowed = ['first_name', 'last_name', 'token', 'is_admin'];
+        $updateData = array_intersect_key($data, array_flip($allowed));
+        // Update user details
+        $updated = $this->repo->update($user_id, $updateData);
+        
         if (!$updated) {
             return ['error' => 'Update failed', 'code' => 500];
         }
@@ -134,7 +121,7 @@ class UserService
             return ['error' => 'User not found', 'code' => 404];
         }
 
-        $deleted = $this->repo->delete($user_id);              
+        $deleted = $this->repo->softDelete($user_id);              
 
         return $deleted ? ['success' => true] : ['error' => 'User not found', 'code' => 404];
     }

@@ -2,12 +2,12 @@
 // src/Middleware/AuthMiddleware.php
 namespace App\Middleware;
 
-use App\Core\Middleware;
+use App\Core\MiddlewareInterface;
 use App\Core\Request;
 use App\Core\Response;
 use App\Security\Jwt;
 
-class AuthMiddleware implements Middleware {
+class AuthMiddleware implements MiddlewareInterface {
     public function __construct(private Jwt $jwt) {}
 
     /**

@@ -4,8 +4,9 @@ namespace App\Middleware;
 
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\MiddlewareInterface;
 
-class LoggingMiddleware {
+class LoggingMiddleware implements MiddlewareInterface {
     /**
      * Logs the request and response to the log file.
      *
@@ -35,6 +36,7 @@ class LoggingMiddleware {
             FILE_APPEND | LOCK_EX            
         );
 
+        error_log("[LOG] {$request->getMethod()} {$request->getUri()}");
         return $response;
     }
 }

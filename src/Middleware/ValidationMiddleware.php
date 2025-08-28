@@ -2,55 +2,46 @@
 // src/Middleware/ValidationMiddleware.php
 namespace App\Middleware;
 
-use App\Core\Middleware;
+use App\Core\MiddlewareInterface;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Validator;
 
 
-class ValidationMiddleware implements Middleware {
-    private array $requiredFields;
+class ValidationMiddleware implements MiddlewareInterface {
+    private array $rules;
 
-    /** @param array<string,array<string,int|bool>> $rules */
+    /**
+     * Constructor for ValidationMiddleware.
+     *
+     * @param array $rules An array of required field names to validate in the request body.
+     */
+    public function __construct(array $rules) {
+        $this->rules = $rules;
+    }
 
     
     /**
-     * Constructor to initialize the required fields to be validated.
+     * Handle an incoming request.
      *
-     * @param array<string> $requiredFields The fields that must be present in the request body.
-     */
-    public function __construct(array $requiredFields) {
-        $this->requiredFields = $requiredFields;
-    }
-
-    /**
-     * Validate the request body against the required fields.
-     *
-     * @param Request $request The request to validate.
-     * @param callable $next The next middleware to call if the validation passes.
-     *
-     * @return Response The response if the validation failed, otherwise the response from the next middleware.
+     * @param  Request  $request
+     * @param  callable  $next
+     * @return Response
      */
     public function handle(Request $request, callable $next): Response {
         $data = $request->getBody();
-        $errors = [];
-
-        foreach ($this->requiredFields as $field) {
-            // special case: is_admin can be false, so just check existence
-            if ($field === 'is_admin') {
-                if (!array_key_exists('is_admin', $data)) {
-                    $errors[] = "Missing field: is_admin";
-                }
-                continue;
-            }
-
-            if (!isset($data[$field]) || trim((string)$data[$field]) === '') {
-                $errors[] = "Missing or empty field: $field";
-            }
+        $validator = (new Validator())->validate($data, $this->rules);
+        //  die();
+        if ($validator->fails()) {
+            // show validation errors
+            // var_dump($validator->errors());  
+            return Response::json(['errors' => $validator->errors()], 400);
+        } else {
+            // only valid, sanitized fields
+            // var_dump($validator->validated()); 
+            $request->setBody($validator->validated());
         }
-        
-        if (!empty($errors)) {
-            return Response::json(['errors' => $errors], 422);
-        }
+
         return $next($request);
     }
 }

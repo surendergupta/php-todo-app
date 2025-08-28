@@ -1,20 +1,32 @@
 <?php
 // src/Repository/TodoRepository.php
+declare(strict_types=1);
+
 namespace App\Repository;
 
-use PDO;
+use App\Database\QueryBuilder;
 
-class TodoRepository {
-    public function __construct(private PDO $db) {}
+class TodoRepository extends BaseRepository {
+    private QueryBuilder $qb;
+    private string $table = 'todos';
+
+    public function __construct(QueryBuilder $qb) {
+        $this->qb = $qb;
+    }
 
     /**
      * Get all todos.
      *
-     * @return array
+     * @return array|false An array of todo items, or false on error
      */
-    public function all(): array {
-        $stmt = $this->db->query("SELECT id, title FROM todos ORDER BY id DESC");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    public function all(): ?array {
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                ->select(['id', 'title', 'user_id', 'deleted_at'])
+                ->whereNull('deleted_at')
+                ->orderBy('id', 'DESC')
+                ->get()
+        );
     }
 
     /**
@@ -23,26 +35,29 @@ class TodoRepository {
      * @param int $id
      * @return array|bool
      */
-    public function find(int $id): array|bool {
-        $stmt = $this->db->prepare("SELECT id, title FROM todos WHERE id = :id");
-        $stmt->execute(['id' => $id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$user) {
-            return false;
-        }
-        return $user;
+    public function find(int $id): ?array {
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                    ->select(['id', 'title', 'user_id', 'deleted_at'])
+                    ->where('id', '=', $id)
+                    ->whereNull('deleted_at')
+                    ->first()
+        );
     }
 
     /**
      * Create a new todo item.
      *
-     * @param string $title
+     * @param array $data
      * @return int ID of the newly created todo item
      */
-    public function create(string $title): int {
-        $stmt = $this->db->prepare("INSERT INTO todos (title) VALUES (:title)");
-        $stmt->execute(['title' => $title]);
-        return (int) $this->db->lastInsertId();
+    public function create(array $data): ?int {
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                ->insert(['title' => $data['title'], 'user_id' => $data['user_id']]) 
+                ? (int) $this->qb->getLastInsertId() 
+                : null,
+        );
     }
 
     /**
@@ -54,11 +69,11 @@ class TodoRepository {
      * @return bool Whether the update was successful
      */
     public function update(int $id, string $title): bool {
-        $stmt = $this->db->prepare("UPDATE todos SET title = :title WHERE id = :id");
-        return $stmt->execute([
-            'title' => $title,
-            'id'    => $id
-        ]);        
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                ->where('id', '=', $id)
+                ->update(['title' => $title])
+        );
     }
 
     /**
@@ -69,8 +84,25 @@ class TodoRepository {
      * @return bool Whether the deletion was successful
      */
     public function delete(int $id): bool {
-        $stmt = $this->db->prepare("DELETE FROM todos WHERE id = :id");
-        $stmt->execute(['id' => $id]);
-        return $stmt->rowCount() > 0;
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                ->where('id', '=', $id)
+                ->delete()
+        );
+    }
+
+    /**
+     * Soft delete a todo item by ID.
+     *
+     * @param int $id The ID of the todo item to soft delete
+     *
+     * @return bool Whether the soft deletion was successful
+     */
+    public function softDelete(int $id): bool {
+        return $this->safeExecute(
+            fn() => $this->qb->table($this->table)
+                ->where('id', '=', $id)
+                ->softDelete()
+        );
     }
 }

@@ -21,10 +21,10 @@ class TodoService {
      *
      * @param int $id The ID of the todo item to retrieve.
      *
-     * @return array|false If the todo item is found, returns an array with its data.
-     *                     If the todo item is not found, returns a boolean false.
+     * @return array|null If the todo item is found, returns an array with its data.
+     *                     If the todo item is not found, returns null.
      */
-    public function getTodoById(int $id): array|false {
+    public function getTodoById(int $id): ?array {
         return $this->repo->find($id);
     }
 
@@ -35,9 +35,9 @@ class TodoService {
      *
      * @return array An array containing the ID of the new todo item and its title.
      */
-    public function addTodo(string $title): array {
-        $id = $this->repo->create($title);
-        return ['id' => $id, 'title' => $title];
+    public function addTodo(array $data): array {
+        $id = $this->repo->create($data);
+        return $this->repo->find($id);
     }
     
     /**
@@ -67,6 +67,6 @@ class TodoService {
      * @return bool Whether the deletion was successful
      */
     public function removeTodo(int $id): bool {
-        return $this->repo->delete($id);
+        return $this->repo->softDelete($id);
     }
 }
