@@ -35,8 +35,8 @@ class TodoService {
      *
      * @return array An array containing the ID of the new todo item and its title.
      */
-    public function addTodo(array $data): array {
-        $id = $this->repo->create($data);
+    public function addTodo(array $data): ?array {
+        $id = $this->repo->create($data);        
         return $this->repo->find($id);
     }
     

@@ -59,7 +59,10 @@ class TodoController {
             return Response::json(['error' => 'User ID is required'], 422);
         }
         $todo = $this->service->addTodo($data);
-        return Response::json($todo, 201);
+        if (!empty($todo)) {
+            return Response::json($todo, 201);
+        }
+        return Response::json(['error' => 'Todo not created', 'data' => $todo], 422);
     }
 
     /**

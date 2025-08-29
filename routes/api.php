@@ -1,8 +1,6 @@
 <?php
 // routes/web.php
 use App\Core\Router;
-use App\Database;
-use App\Database\QueryBuilder;
 use App\Middleware\RateLimiterMiddleware;
 use App\Repository\TodoRepository;
 use App\Services\TodoService;
@@ -23,18 +21,19 @@ if ($jwtSecret === 'fallback_secret' && ($_ENV['APP_ENV'] ?? 'prod') === 'prod')
 }
 
 $jwt = new Jwt($jwtSecret);
+$userRepository = new UserRepository();
 $todoController = new TodoController(
     new TodoService(
-        new TodoRepository(new QueryBuilder(Database::getConnection()))
+        new TodoRepository()
     )
 );
 
 $userController = new UserController(
     new UserService(
-        new UserRepository(new QueryBuilder(Database::getConnection()))
+        new UserRepository()
     )
 );
-$router->group('/api/v1', function($router) use ($todoController, $userController, $jwt) {
+$router->group('/api/v1', function($router) use ($todoController, $userController, $jwt, $userRepository) {
     $router->group(
         '/todos', 
         function($router) use ($jwt, $todoController)  {
@@ -54,13 +53,13 @@ $router->group('/api/v1', function($router) use ($todoController, $userControlle
             new CorsMiddleware(), 
             new LoggingMiddleware(),
             new RateLimiterMiddleware(),
-            new AuthMiddleware($jwt)
+            new AuthMiddleware($jwt, $userRepository)
         ]
     );
 
     $router->group(
         '/users', 
-        function($router) use ($jwt, $userController) 
+        function($router) use ($jwt, $userRepository, $userController) 
         {
             // Define routes within the /users group
             // List all users
@@ -77,9 +76,9 @@ $router->group('/api/v1', function($router) use ($todoController, $userControlle
                 'is_admin' => 'sometimes|boolean'              
                 ])]);
             // Update user details
-            $router->add('PUT', '/{user_id}', fn($req) => $userController->update($req, $req->getParams()), [ new AuthMiddleware($jwt) ]);
+            $router->add('PUT', '/{user_id}', fn($req) => $userController->update($req, $req->getParams()), [ new AuthMiddleware($jwt, $userRepository) ]);
             // Delete user
-            $router->add('DELETE', '/{user_id}', fn($req) => $userController->destroy($req, $jwt,$req->getParams()), [ new AuthMiddleware($jwt) ]);
+            $router->add('DELETE', '/{user_id}', fn($req) => $userController->destroy($req, $jwt,$req->getParams()), [ new AuthMiddleware($jwt, $userRepository) ]);
         },
         [
             new CorsMiddleware(), 
@@ -90,13 +89,13 @@ $router->group('/api/v1', function($router) use ($todoController, $userControlle
 
     $router->group(
         '/auth', 
-        function($router) use ($jwt, $userController) 
+        function($router) use ($jwt, $userRepository, $userController) 
         {
             // Define routes within the /auth group
             // Login user
             $router->add('POST', '/login', fn($req) => $userController->login($req, $jwt), [ new ValidationMiddleware(['user_id' => 'required|string|min:3|max:25', 'user_password' => 'required|string|min:8|max:100' ])]);
             // Logout user
-            $router->add('POST', '/logout', fn($req) => $userController->logout($req, $jwt), [ new AuthMiddleware($jwt) ]);
+            $router->add('POST', '/logout', fn($req) => $userController->logout($req, $jwt), [ new AuthMiddleware($jwt, $userRepository) ]);
             // Validate token
             $router->add('GET', '/validate', fn($req) => $userController->validateToken($req, $jwt));
         },

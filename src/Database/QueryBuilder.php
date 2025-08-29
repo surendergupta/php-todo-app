@@ -116,7 +116,7 @@ class QueryBuilder {
         return $result[0] ?? null;
     }
 
-    public function insert(array $data): bool {
+    public function insert(array $data): ?bool {
         try {
             $columns = implode(", ", array_keys($data));
             $placeholders = implode(", ", array_map(fn($k) => ":$k", array_keys($data)));
@@ -127,7 +127,11 @@ class QueryBuilder {
             $this->lastSql = $sql;
             $this->lastBindings = $data;
 
-            return $stmt->execute($data);
+            if ($stmt->execute($data)) {
+                return (int)$this->db->lastInsertId();
+            }
+            return null;
+            // return $stmt->execute($data);
         } catch (PDOException $e) {
             error_log("QueryBuilder DB Error [INSERT]: " . $e->getMessage());
             return false;

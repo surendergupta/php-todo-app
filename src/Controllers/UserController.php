@@ -11,7 +11,7 @@ use App\Services\UserService;
 class UserController 
 {
     private UserService $service;
-    public const PASSWORD_BCRYPT_COST = 10;
+    protected const PASSWORD_BCRYPT_COST = 10;
 
     /**
      * Initialize the controller with a UserService instance.

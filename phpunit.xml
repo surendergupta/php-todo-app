@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php"
-         colors="true"
-         stopOnFailure="false">
+<phpunit bootstrap="vendor/autoload.php" colors="true" stopOnFailure="false">
+    <php>
+        <env name="JWT_SECRET" value="testing-secret-key"/>
+    </php>
     <testsuites>
         <testsuite name="App Test Suite">
             <directory>./tests</directory>
         </testsuite>
     </testsuites>
+    
 </phpunit>
+<!-- <phpunit bootstrap="phpunit.bootstrap.php" colors="true"></phpunit> -->

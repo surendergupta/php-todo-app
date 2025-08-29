@@ -4,15 +4,11 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Database\QueryBuilder;
 
 class UserRepository extends BaseRepository 
 {
-    private QueryBuilder $qb;
+    
     private string $table = 'users';
-    public function __construct(QueryBuilder $qb) {
-        $this->qb = $qb;
-    }
 
     /**
      * Fetch all users from the database
@@ -21,7 +17,8 @@ class UserRepository extends BaseRepository
      */
     public function all(): ?array {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->select(['user_id', 'email_address', 'first_name', 'last_name', 'is_admin'])
                 ->whereNull('deleted_at')
                 ->orderBy('id', 'DESC')
@@ -38,7 +35,8 @@ class UserRepository extends BaseRepository
      */
     public function find(string $user_id): ?array {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('user_id', '=', $user_id)
                 ->whereNull('deleted_at')
                 ->first()
@@ -54,7 +52,8 @@ class UserRepository extends BaseRepository
      */
     public function findByEmail(string $email_address): ?array {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('email_address', '=', $email_address)
                 ->whereNull('deleted_at')
                 ->first()
@@ -82,7 +81,8 @@ class UserRepository extends BaseRepository
         bool $is_admin
     ): ?int {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->insert([
                     'user_id' => $user_id,
                     'email_address' => $email_address,
@@ -91,7 +91,7 @@ class UserRepository extends BaseRepository
                     'last_name' => $last_name,
                     'is_admin' => $is_admin
                 ])
-                ? (int) $this->qb->getLastInsertId() 
+                ? (int) $this->qb()->getLastInsertId() 
                 : null
         );
     }
@@ -112,10 +112,11 @@ class UserRepository extends BaseRepository
     public function update(string $user_id, array $data): bool {
         $data['updated_at'] = date('Y-m-d H:i:s');
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
-            ->where('user_id', '=', $user_id)
-            ->whereNull('deleted_at')
-            ->update($data)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
+                ->where('user_id', '=', $user_id)
+                ->whereNull('deleted_at')
+                ->update($data)
         );
     }
 
@@ -128,7 +129,8 @@ class UserRepository extends BaseRepository
      */
     public function delete(string $user_id): bool {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('user_id', '=', $user_id)
                 ->delete()
         );
@@ -141,9 +143,24 @@ class UserRepository extends BaseRepository
      */
     public function softDelete(string $user_id): bool {
         return $this->safeExecute(
-            fn() => $this->qb->reset()->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('user_id', '=', $user_id)
                 ->softDelete()
+        );
+    }
+
+    public function getTokenFromDB(?string $user_id): ?string {
+        if (!$user_id) {
+            return null;
+        }
+
+        return $this->safeExecute(
+            fn() => $this->qb()->reset()
+                ->table($this->table)
+                ->select(['token'])
+                ->where('user_id', '=', $user_id)
+                ->first()['token']
         );
     }
 }

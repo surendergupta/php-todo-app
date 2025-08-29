@@ -1,103 +1,96 @@
 <?php
 namespace Tests;
 
-use PHPUnit\Framework\TestCase;
-use App\Core\Router;
 use App\Core\Request;
 
-class TodoApiTest extends TestCase
+class TodoApiTest extends BaseApiTestCase
 {
-    private Router $router;
     private int $todoId;
-
-    protected function setUp(): void
+    
+    public function setUp(): void
     {
-        // Boot router from routes file
-        $this->router = require __DIR__ . '/../routes/web.php';
-    }
-
-    private function dispatchAndGetJson(Request $request): array
-    {
-        ob_start();
-        $this->router->dispatch($request->getMethod(), $request->getUri(), $request);
-        $output = ob_get_clean();
-        $this->assertNotEmpty($output, 'Router returned no output');
-        $this->assertJson($output, 'Router did not return valid JSON');
-        return json_decode($output, true, 512, JSON_THROW_ON_ERROR);
-    }
-
+        parent::setUp();
+    }    
+    
     public function test_can_list_todos(): void
     {
         $request = new Request();
-        $request->setUri('/todos');
+        $request->setUri('/api/v1/todos');
         $request->setMethod('GET');
-        $data = $this->dispatchAndGetJson($request);
+        $this->withAuth($request);
+
+        $data = self::dispatchAndGetJsonStatic($request);
         $this->assertIsArray($data);
     }
-
+    
     public function test_can_create_todo(): void
     {
         $request = new Request();
-        $request->setUri('/todos');
+        $request->setUri('/api/v1/todos/');
         $request->setMethod('POST');
-        $request->setBody(['title' => 'My First Todo']);
-        $data = $this->dispatchAndGetJson($request);
+        $this->withAuth($request);
+        $request->setBody(['title' => 'My First Todo', 'user_id' => $this->testUserId]);
 
+        $data = self::dispatchAndGetJsonStatic($request);
+        // var_dump($data);
         $this->assertArrayHasKey('id', $data);
-        $this->assertSame('My First Todo', $data['title']);
-
-        $this->todoId = $data['id']; // save for next tests
+        $this->assertSame('My First Todo', $data['title']);        
     }
-
+ 
     public function test_create_todo_validation_fails(): void
     {
         $request = new Request(); // missing title
-        $request->setUri('/todos');
+        $request->setUri('/api/v1/todos');
         $request->setMethod('POST');
-        $request->setBody(['title' => '']);
+        $this->withAuth($request);
+        $request->setBody(['title' => '', 'user_id' => $this->testUserId]);
         
-        $data = $this->dispatchAndGetJson($request);
-
+        $data = self::dispatchAndGetJsonStatic($request);
+        // var_dump($data);
         $this->assertArrayHasKey('errors', $data);
-        $this->assertContains("Missing or empty field: title", $data['errors']);
+        $this->assertContains("title is required", $data['errors']['title']);
+        $this->assertContains("title must be at least 3 characters", $data['errors']['title']);
     }
 
     public function test_can_update_todo(): void
     {
-        // First create a todo
         $createReq = new Request();
-        $createReq->setUri('/todos');
+        $createReq->setUri('/api/v1/todos/');
         $createReq->setMethod('POST');
-        $createReq->setBody(['title' => 'Todo upadte me']);
-        $created = $this->dispatchAndGetJson($createReq);
-
-        $this->assertArrayHasKey('id', $created);
-        $this->assertArrayHasKey('title', $created);
-
-        $id = $created['id'];
+        $this->withAuth($createReq);
+        $createReq->setBody(['title' => 'My First update Todo','user_id' => $this->testUserId ]);
+        $data = self::dispatchAndGetJsonStatic($createReq);
+        
+        $this->assertArrayHasKey('id', $data);
+        $this->assertSame('My First update Todo', $data['title']);
+        $this->assertNotEmpty($data['id'], 'Todo ID should not be empty after creation');
+        $todoId = $data['id'];
 
         // Update it
         $updateReq = new Request();
-        $updateReq->setUri("/todos/$id");
+        $updateReq->setUri("/api/v1/todos/{$todoId}");
         $updateReq->setMethod('PUT');
-        $updateReq->setBody(['title' => 'Updated title']);
-        $updated = $this->dispatchAndGetJson($updateReq);
-
+        $this->withAuth($updateReq);
+        $updateReq->setBody(['title' => 'Updated title','user_id' => $this->testUserId]);
+        $updated = self::dispatchAndGetJsonStatic($updateReq);
+        
         $this->assertArrayHasKey('id', $updated);
         $this->assertArrayHasKey('title', $updated);
-        $this->assertSame($id, $updated['id']);
+        $this->assertNotEmpty($updated['id'], 'Todo ID should not be update after creation');
+        $this->assertSame($todoId, $updated['id']);
         $this->assertSame('Updated title', $updated['title']);
     }
-
+    
     public function test_can_delete_todo(): void
     {
         // Create a todo to delete
         $createReq = new Request();
-        $createReq->setUri('/todos');
+        $createReq->setUri('/api/v1/todos/');
         $createReq->setMethod('POST');
-        $createReq->setBody(['title' => 'Todo to delete']);
-        $created = $this->dispatchAndGetJson($createReq);
-
+        $this->withAuth($createReq);
+        $createReq->setBody(['title' => 'Todo to delete', 'user_id' => $this->testUserId]);
+        $created = self::dispatchAndGetJsonStatic($createReq);
+        
         $this->assertArrayHasKey('id', $created);
         $this->assertArrayHasKey('title', $created);
         $this->assertSame('Todo to delete', $created['title']);
@@ -106,10 +99,10 @@ class TodoApiTest extends TestCase
 
         // Delete it
         $deleteReq = new Request();
-        $deleteReq->setUri("/todos");
+        $deleteReq->setUri("/api/v1/todos/$id");
         $deleteReq->setMethod('DELETE');
-        $deleteReq->setBody(['id' => $id]);
-        $deleted = $this->dispatchAndGetJson($deleteReq);
+        $this->withAuth($deleteReq);        
+        $deleted = self::dispatchAndGetJsonStatic($deleteReq);
 
         $this->assertArrayHasKey('message', $deleted);
         $this->assertSame('Todo item deleted successfully', $deleted['message']);

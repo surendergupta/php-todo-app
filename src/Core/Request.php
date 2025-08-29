@@ -229,6 +229,20 @@ class Request
     }
 
     /**
+     * Set a request header.
+     *
+     * This method sets a request header to the given value.
+     *
+     * @param string $key   The key of the request header to set.
+     * @param string $value The value of the request header to set.
+     *
+     * @return void
+     */
+    public function setHeader(string $key, string $value): void {
+        $this->headers[strtolower($key)] = $value;
+    }
+    
+    /**
      * Get the request method.
      *
      * This method returns the request method as a string, e.g. 'GET', 'POST', 'PUT', 'DELETE', etc.

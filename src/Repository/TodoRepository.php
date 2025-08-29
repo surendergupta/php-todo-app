@@ -4,15 +4,8 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Database\QueryBuilder;
-
 class TodoRepository extends BaseRepository {
-    private QueryBuilder $qb;
     private string $table = 'todos';
-
-    public function __construct(QueryBuilder $qb) {
-        $this->qb = $qb;
-    }
 
     /**
      * Get all todos.
@@ -21,7 +14,8 @@ class TodoRepository extends BaseRepository {
      */
     public function all(): ?array {
         return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->select(['id', 'title', 'user_id', 'deleted_at'])
                 ->whereNull('deleted_at')
                 ->orderBy('id', 'DESC')
@@ -37,11 +31,12 @@ class TodoRepository extends BaseRepository {
      */
     public function find(int $id): ?array {
         return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
-                    ->select(['id', 'title', 'user_id', 'deleted_at'])
-                    ->where('id', '=', $id)
-                    ->whereNull('deleted_at')
-                    ->first()
+            fn() => $this->qb()->reset()
+                ->table($this->table)
+                ->select(['id', 'title', 'user_id', 'deleted_at'])
+                ->where('id', '=', $id)
+                ->whereNull('deleted_at')
+                ->first()
         );
     }
 
@@ -51,12 +46,13 @@ class TodoRepository extends BaseRepository {
      * @param array $data
      * @return int ID of the newly created todo item
      */
-    public function create(array $data): ?int {
-        return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
-                ->insert(['title' => $data['title'], 'user_id' => $data['user_id']]) 
-                ? (int) $this->qb->getLastInsertId() 
-                : null,
+    public function create(array $data): int {
+        return (int) $this->safeExecute(
+            fn() => $this->qb()->reset()
+                ->table($this->table)
+                ->insert(['title' => $data['title'], 'user_id' => $data['user_id']])
+                ? $this->qb()->getLastInsertId() 
+                : null
         );
     }
 
@@ -70,7 +66,8 @@ class TodoRepository extends BaseRepository {
      */
     public function update(int $id, string $title): bool {
         return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('id', '=', $id)
                 ->update(['title' => $title])
         );
@@ -85,7 +82,8 @@ class TodoRepository extends BaseRepository {
      */
     public function delete(int $id): bool {
         return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('id', '=', $id)
                 ->delete()
         );
@@ -100,7 +98,8 @@ class TodoRepository extends BaseRepository {
      */
     public function softDelete(int $id): bool {
         return $this->safeExecute(
-            fn() => $this->qb->table($this->table)
+            fn() => $this->qb()->reset()
+                ->table($this->table)
                 ->where('id', '=', $id)
                 ->softDelete()
         );
