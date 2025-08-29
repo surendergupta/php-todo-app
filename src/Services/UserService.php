@@ -129,8 +129,7 @@ class UserService
     public function generateToken(
         string $user_id, 
         bool $is_admin,
-        $jwt,
-        
+        $jwt
     ): string {
         $claims  = [
             'user_id' => $user_id,

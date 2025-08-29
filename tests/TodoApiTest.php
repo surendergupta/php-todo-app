@@ -26,7 +26,7 @@ class TodoApiTest extends BaseApiTestCase
     public function test_can_create_todo(): void
     {
         $request = new Request();
-        $request->setUri('/api/v1/todos/');
+        $request->setUri('/api/v1/todos');
         $request->setMethod('POST');
         $this->withAuth($request);
         $request->setBody(['title' => 'My First Todo', 'user_id' => $this->testUserId]);
@@ -55,7 +55,7 @@ class TodoApiTest extends BaseApiTestCase
     public function test_can_update_todo(): void
     {
         $createReq = new Request();
-        $createReq->setUri('/api/v1/todos/');
+        $createReq->setUri('/api/v1/todos');
         $createReq->setMethod('POST');
         $this->withAuth($createReq);
         $createReq->setBody(['title' => 'My First update Todo','user_id' => $this->testUserId ]);
@@ -85,7 +85,7 @@ class TodoApiTest extends BaseApiTestCase
     {
         // Create a todo to delete
         $createReq = new Request();
-        $createReq->setUri('/api/v1/todos/');
+        $createReq->setUri('/api/v1/todos');
         $createReq->setMethod('POST');
         $this->withAuth($createReq);
         $createReq->setBody(['title' => 'Todo to delete', 'user_id' => $this->testUserId]);

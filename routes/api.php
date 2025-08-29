@@ -1,39 +1,48 @@
 <?php
-// routes/web.php
-use App\Core\Router;
-use App\Middleware\RateLimiterMiddleware;
-use App\Repository\TodoRepository;
-use App\Services\TodoService;
-use App\Controllers\TodoController;
-use App\Middleware\{CorsMiddleware, LoggingMiddleware, AuthMiddleware, ValidationMiddleware};
-use App\Security\Jwt;
+// routes/api.php
+declare(strict_types=1);
 
-use App\Repository\UserRepository;
-use App\Services\UserService;
-use App\Controllers\UserController;
+use App\Core\Router;
+use App\Security\Jwt;
+use App\Middleware\{
+    CorsMiddleware,
+    LoggingMiddleware,
+    AuthMiddleware,
+    ValidationMiddleware,
+    RateLimiterMiddleware
+};
+use App\Repository\{TodoRepository, UserRepository};
+use App\Services\{TodoService, UserService, AuthService};
+use App\Controllers\{TodoController, UserController, AuthController};
 
 $router = new Router();
 
 $jwtSecret = $_ENV['JWT_SECRET'] ?? 'fallback_secret';
 if ($jwtSecret === 'fallback_secret' && ($_ENV['APP_ENV'] ?? 'prod') === 'prod') {
-    error_log('Warning: Using fallback JWT secret. Set JWT_SECRET in environment for better security.');
-    throw new \RuntimeException('Missing JWT_SECRET in environment.');
+    // error_log('Warning: Using fallback JWT secret. Set JWT_SECRET in environment for better security.');
+    throw new \RuntimeException('Missing JWT_SECRET in production.');
 }
 
 $jwt = new Jwt($jwtSecret);
-$userRepository = new UserRepository();
-$todoController = new TodoController(
-    new TodoService(
-        new TodoRepository()
-    )
-);
 
-$userController = new UserController(
-    new UserService(
-        new UserRepository()
-    )
-);
-$router->group('/api/v1', function($router) use ($todoController, $userController, $jwt, $userRepository) {
+// Initialize auth repositories and services
+$authRepository = new UserRepository();
+$authService    = new AuthService($authRepository, $jwt);
+$authController = new AuthController($authService);
+
+// Initialize todo repositories and services
+$todoRepository = new TodoRepository();
+$todoService = new TodoService($todoRepository);
+$todoController = new TodoController($todoService);
+
+// Initialize user repositories and services
+$userRepository = new UserRepository();
+$userService    = new UserService($userRepository);
+$userController = new UserController($userService);
+
+
+
+$router->group('/api/v1', function($router) use ($todoController, $userController, $jwt, $userRepository, $authController) {
     $router->group(
         '/todos', 
         function($router) use ($jwt, $todoController)  {
@@ -43,9 +52,19 @@ $router->group('/api/v1', function($router) use ($todoController, $userControlle
             // Show single todo
             $router->add('GET', '/{id}', fn($req) => $todoController->show($req->getParams()));
             // Create todo
-            $router->add('POST', '/', fn($req) => $todoController->store($req), [ new ValidationMiddleware(['title' => 'required|string|min:3|max:100', 'user_id' => 'required|string|min:3|max:25'])]);
+            $router->add('POST', '/', fn($req) => $todoController->store($req), [ 
+                new ValidationMiddleware([
+                    'title' => 'required|string|min:3|max:100', 
+                    'user_id' => 'required|string|min:3|max:25'
+                ])
+            ]);
             // Update todo
-            $router->add('PUT', '/{id}', fn($req) => $todoController->update($req, $req->getParams()['id']), [ new ValidationMiddleware(['title' => 'required|string|min:3|max:100', 'user_id' => 'required|string|min:3|max:25'])]);
+            $router->add('PUT', '/{id}', fn($req) => $todoController->update($req, (int) $req->getParams()['id']), [ 
+                new ValidationMiddleware([
+                    'title' => 'required|string|min:3|max:100', 
+                    'user_id' => 'required|string|min:3|max:25'
+                ])
+            ]);
             // Delete todo
             $router->add('DELETE', '/{id}', fn($req) => $todoController->destroy($req, $jwt, $req->getParams()['id']));        
         },
@@ -89,15 +108,22 @@ $router->group('/api/v1', function($router) use ($todoController, $userControlle
 
     $router->group(
         '/auth', 
-        function($router) use ($jwt, $userRepository, $userController) 
+        function($router) use ($jwt, $userRepository, $authController) 
         {
             // Define routes within the /auth group
             // Login user
-            $router->add('POST', '/login', fn($req) => $userController->login($req, $jwt), [ new ValidationMiddleware(['user_id' => 'required|string|min:3|max:25', 'user_password' => 'required|string|min:8|max:100' ])]);
+            $router->add('POST', '/login', fn($req) => $authController->login($req), [ 
+                new ValidationMiddleware([
+                    'user_id' => 'required|string|min:3|max:25', 
+                    'user_password' => 'required|string|min:8|max:100' 
+                ])
+            ]);
             // Logout user
-            $router->add('POST', '/logout', fn($req) => $userController->logout($req, $jwt), [ new AuthMiddleware($jwt, $userRepository) ]);
+            $router->add('POST', '/logout', fn($req) => $authController->logout($req), [ 
+                new AuthMiddleware($jwt, $userRepository) 
+            ]);
             // Validate token
-            $router->add('GET', '/validate', fn($req) => $userController->validateToken($req, $jwt));
+            $router->add('GET', '/validate', fn($req) => $authController->validateToken($req));
         },
         [
             new CorsMiddleware(), 

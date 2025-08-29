@@ -59,12 +59,7 @@ class UserController
         return $errors ?: null;
     }
 
-    private function validateLoginData(array $data): ?array {
-        $errors = [];
-        if (empty($data['user_id'])) $errors[] = 'User ID is required';
-        if (empty($data['user_password'])) $errors[] = 'Password is required';
-        return $errors ?: null;
-    }
+    
 
     /**
      * List all users
@@ -216,116 +211,5 @@ class UserController
         }
         // Return success message
         return Response::json(['message' => 'User deleted successfully'], 200);
-    }
-
-    /**
-     * Login user
-     * 
-     * @param Request $request The request object
-     * @param string $jwtSecret The JWT secret
-     * 
-     * @return Response The response object
-     */
-    public function login(Request $request, $jwt): Response {
-        // Get login data from request body
-        $data = $request->getBody();
-
-        // Validate login data
-        $errors = $this->validateLoginData($data);
-        if ($errors) {
-            return Response::json(['errors' => $errors], 400);
-        }
-
-        // Find user by user_id
-        $user = $this->service->findUser($data['user_id']);
-        if (!$user || !password_verify($data['user_password'], $user['user_password'])) {
-            return Response::json(['error' => 'Invalid credentials'], 401);
-        }
-
-        // Handle service error
-        if (isset($user['error'])) {
-            return Response::json(['error' => $user['error']], $user['code'] ?? 409);
-        }
-
-        if (!is_object($jwt) || !method_exists($jwt, 'issue')) {
-            throw new \Exception('JWT service not initialized');
-        }
-        // Generate JWT token
-        $token = $this->service->generateToken(
-            $user['user_id'], 
-            (bool) $user['is_admin'],
-            $jwt
-        );
-
-        $user['token'] = $token;
-        $user['is_admin'] = (bool) $user['is_admin'];
-        // Update user token
-        $userUpdated = $this->service->updateUser($user['user_id'], $user);
-        if (isset($userUpdated['error'])) {
-            return Response::json(['error' => $userUpdated['error']], $userUpdated['code'] ?? 404);
-        }
-
-        unset($user['user_password']);
-        return Response::json(['message' => 'User logged in successfully', 'user' => $userUpdated], 200);
-    }
-
-    public function logout(Request $request, $jwt): Response {
-        // Get token from Authorization header
-        $token = $request->getHeader('Authorization');
-        
-        if (strpos($token, 'Bearer ') === 0) {
-            $token = substr($token, 7);
-        }
-        if (empty($token)) {
-            return Response::json(['error' => 'Authorization token is required'], 400);
-        }
-        $decoded = $this->service->validateToken($token,  $jwt);
-        // var_dump($decoded);
-        // Handle service error
-        if (isset($decoded['error'])) {
-            return Response::json(['error' => $decoded['error']], $decoded['code'] ?? 409);
-        }
-
-        $user_id = $decoded['user_id'];
-        // var_dump($user_id);
-        $user = $this->service->findUser($user_id);
-        if (!$user) {
-            return Response::json(['error' => 'User not found'], 404);
-        }
-        $user['token'] = null;
-        $userUpdated = $this->service->updateUser($user_id, $user);
-        if (isset($userUpdated['error'])) {
-            return Response::json(['error' => $userUpdated['error']], $userUpdated['code'] ?? 404);
-        }
-        // Invalidate token logic here (if using a token blacklist or similar)
-
-        // For stateless JWT, just inform the client to delete the token
-        return Response::json(['message' => 'User logged out successfully'], 200);
-    }
-
-    /**
-     * Validate JWT token
-     * 
-     * @param Request $request The request object
-     * 
-     * @return Response The response object
-     */
-    public function validateToken(Request $request, $jwt): Response {
-        // Get token from Authorization header
-        $token = $request->getHeader('Authorization');
-        
-        if (strpos($token, 'Bearer ') === 0) {
-            $token = substr($token, 7);
-        }
-        if (empty($token)) {
-            return Response::json(['error' => 'Authorization token is required'], 400);
-        }
-        $decoded = $this->service->validateToken($token,  $jwt);
-        // var_dump($decoded);
-        if (isset($decoded['error'])) {
-            return Response::json(['error' => $decoded['error']], $decoded['code'] ?? 401);
-        }
-        // Return user details
-        return Response::json(['message' => 'Token is valid', 'user' => $decoded], 200);
-    }
+    }    
 }
